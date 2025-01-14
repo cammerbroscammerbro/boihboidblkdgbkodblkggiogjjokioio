@@ -15,7 +15,7 @@ app = Flask(__name__)
 CORS(app)
 
 # Set your OpenAI API key directly (NOT RECOMMENDED for production)
-openai.api_key = "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"
+openai.api_key = "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"
 
 html_element_descriptions = {
     "button": "A clickable button, often used for submitting forms or triggering actions.",
