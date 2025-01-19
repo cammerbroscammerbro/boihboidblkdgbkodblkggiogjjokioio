@@ -134,6 +134,11 @@ def serve_index():
 @app.route('/favicon.ico')
 def serve_favicon():
     return '', 204
+    # Health check route to monitor service status
+@app.route('/health')
+def health_check():
+    return jsonify({"status": "healthy"}), 200
+
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
