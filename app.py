@@ -1,21 +1,19 @@
-from flask import Flask, request, jsonify, send_from_directory
-from flask_cors import CORS  # Import CORS
+from flask import Flask, request, jsonify
+import os
+import hashlib
 import torch
 from transformers import CLIPProcessor, CLIPModel
 from PIL import Image
 from collections import Counter
 import openai
-import os
-import hashlib
 import logging
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)  # Allow all domains to access
 
-# Enable CORS for all routes
-CORS(app)
-
-# Set your OpenAI API key directly (NOT RECOMMENDED for production)
-openai.api_key = "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"
+# OpenAI API Key (Replace with actual key securely)
+openai.api_key = "your-openai-api-key"
 
 html_element_descriptions = {
     "button": "A clickable button, often used for submitting forms or triggering actions.",
@@ -38,7 +36,6 @@ COLOR_NAMES = {
     "gray": (128, 128, 128),
 }
 
-# Function to find the closest color name
 def closest_color(requested_color):
     min_distance = float("inf")
     closest_name = None
@@ -49,14 +46,12 @@ def closest_color(requested_color):
             closest_name = name
     return closest_name
 
-# Function to extract the dominant color
 def get_dominant_color(image):
     image = image.convert("RGB").resize((150, 150))
     pixels = list(image.getdata())
     most_common_color = Counter(pixels).most_common(1)[0][0]
     return closest_color(most_common_color)
 
-# Function to generate HTML with inline CSS
 def generate_html_css(description, color):
     prompt = f"""
     Create a single HTML document with inline CSS based on the following details:
@@ -75,41 +70,46 @@ def generate_html_css(description, color):
         logging.error(f"Error with OpenAI API request: {str(e)}")
         return "Error generating HTML"
 
-# Function to hash images for caching
 def hash_image(image_path):
     with open(image_path, "rb") as f:
         return hashlib.md5(f.read()).hexdigest()
 
-# Cache to avoid duplicate processing
 processed_images = {}
 
-# Route for processing image uploads
-@app.route('/process-image', methods=['POST'])
-def process_image():
-    if 'image' not in request.files:
-        return jsonify({'error': 'No image file provided'}), 400
+@app.route('/')
+def index():
+    try:
+        with open("index.html", "r") as f:
+            return f.read()
+    except FileNotFoundError:
+        return "index.html not found in root folder", 404
 
-    image = request.files['image']
-    image_path = os.path.join('temp', image.filename)
-    image.save(image_path)
+@app.route('/generate-code', methods=['POST'])
+def generate_code():
+    if 'images' not in request.files:
+        return jsonify({'error': 'No image files provided'}), 400
+    
+    images = request.files.getlist('images')
+    descriptions = request.form.getlist('descriptions[]')
 
-    image_hash = hash_image(image_path)
-    if image_hash in processed_images:
-        return jsonify(processed_images[image_hash])
+    if len(images) != len(descriptions):
+        return jsonify({'error': 'Mismatch between number of images and descriptions'}), 400
 
-    img = Image.open(image_path)
-    description, color = get_description_from_image(img)
-    generated_code = generate_html_css(description, color)
+    result_code = ""
+    for idx, image in enumerate(images):
+        image_path = os.path.join('temp', image.filename)
+        image.save(image_path)
 
-    result = {
-        'description': description,
-        'color': color,
-        'generated_code': generated_code
-    }
-    processed_images[image_hash] = result
-    return jsonify(result)
+        img = Image.open(image_path)
+        clip_description, color = get_description_from_image(img)
 
-# Extract description and color from the image
+        user_description = descriptions[idx] if descriptions[idx] else clip_description
+        generated_code = generate_html_css(user_description, color)
+
+        result_code += f"Generated code for image {idx + 1}:\n\n{generated_code}\n\n"
+
+    return jsonify({'generated_code': result_code})
+
 def get_description_from_image(image):
     inputs = processor(images=image, text=list(html_element_descriptions.values()), return_tensors="pt", padding=True)
     with torch.no_grad():
@@ -126,19 +126,13 @@ def get_description_from_image(image):
     dominant_color = get_dominant_color(image)
     return description, dominant_color
 
-# Serve index.html from the root directory
-@app.route('/')
-def serve_index():
-    return send_from_directory('.', 'index.html')
-
 @app.route('/favicon.ico')
 def serve_favicon():
     return '', 204
-    # Health check route to monitor service status
+
 @app.route('/health')
 def health_check():
     return jsonify({"status": "healthy"}), 200
-
 
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG)
