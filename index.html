@@ -15,18 +15,19 @@
             align-items: center;
             height: 100vh;
             color: #ccc;
+            position: relative;
         }
         .container {
             width: 70%;
             background: linear-gradient(145deg, #1a1a1a, #2a2a2a);
-            padding: 50px;
+            padding: 40px;
             border-radius: 15px;
             box-shadow: 10px 10px 30px rgba(255, 255, 255, 0.1);
             text-align: center;
         }
         .drop-box {
             border: 2px dashed #777;
-            padding: 30px;
+            padding: 20px;
             border-radius: 10px;
             background: #1a1a1a;
             margin-bottom: 20px;
@@ -40,15 +41,15 @@
             background: #262626;
             color: #ccc;
             border: 2px solid #777;
-            padding: 12px;
+            padding: 10px;
             border-radius: 10px;
-            margin: 15px 0;
+            margin: 10px 0;
             outline: none;
         }
         .code-output {
             background: #141414;
             color: #ccc;
-            padding: 20px;
+            padding: 15px;
             border-radius: 10px;
             text-align: left;
             overflow-x: auto;
@@ -56,14 +57,11 @@
             border: 2px solid #777;
             min-height: 150px;
         }
-        .code-files {
-            margin-top: 20px;
-        }
         button {
             background: linear-gradient(145deg, #222, #333);
             color: #ccc;
             border: none;
-            padding: 15px 25px;
+            padding: 12px 20px;
             border-radius: 10px;
             cursor: pointer;
             font-weight: bold;
@@ -82,78 +80,40 @@
     <div class="container">
         <h1>Fronti - Convert UI Images to Code</h1>
         <p>Upload UI design images, describe them, and generate structured code.</p>
-        <div class="drop-box" id="drop-box">Drag & Drop Images Here</div>
         <form id="upload-form">
-            <div id="image-container"></div>
-            <button type="button" onclick="addImageField()">Add Image</button>
+            <input type="file" id="image-upload" accept="image/*" required>
+            <textarea id="description" placeholder="Describe the UI..." required></textarea>
             <button type="submit">Generate Code</button>
         </form>
-        <h2>Generated Files:</h2>
-        <div class="code-files" id="code-files"></div>
+        <h2>Generated Code:</h2>
+        <div class="code-output" id="code-output"></div>
     </div>
     
     <script>
-        function addImageField() {
-            let container = document.getElementById("image-container");
-            let div = document.createElement("div");
-            div.innerHTML = `
-                <input type="file" name="images" accept="image/*" required>
-                <textarea name="descriptions[]" placeholder="Describe the UI..." required></textarea>
-            `;
-            container.appendChild(div);
-        }
-
-        document.getElementById("upload-form").addEventListener("submit", async function(event) {
+        document.getElementById("upload-form").addEventListener("submit", function(event) {
             event.preventDefault();
-            let formData = new FormData(this);
-            let response = await fetch("http://localhost:5000/generate-code", { method: "POST", body: formData });
-            let result = await response.json();
+            let image = document.getElementById("image-upload").files[0];
+            let description = document.getElementById("description").value;
             
-            let codeFilesDiv = document.getElementById("code-files");
-            codeFilesDiv.innerHTML = "";
+            if (!image || !description) {
+                alert("Please upload an image and provide a description.");
+                return;
+            }
             
-            if (result.files && result.files.length > 0) {
-                result.files.forEach((file, index) => {
-                    let fileLink = document.createElement("a");
-                    fileLink.href = `http://localhost:5000/download/${file}`;
-                    fileLink.innerText = `Download File ${index + 1}`;
-                    fileLink.setAttribute("download", file);
-                    fileLink.style.display = "block";
-                    fileLink.style.color = "#00ffcc";
-                    fileLink.style.marginTop = "10px";
-                    fileLink.style.fontWeight = "bold";
-                    codeFilesDiv.appendChild(fileLink);
-                });
-            } else {
-                codeFilesDiv.innerText = "Error generating code. Please try again.";
-            }
-        });
-
-        let dropBox = document.getElementById("drop-box");
-        dropBox.addEventListener("dragover", (event) => {
-            event.preventDefault();
-            dropBox.classList.add("dragover");
-        });
-        dropBox.addEventListener("dragleave", () => {
-            dropBox.classList.remove("dragover");
-        });
-        dropBox.addEventListener("drop", (event) => {
-            event.preventDefault();
-            dropBox.classList.remove("dragover");
-            let files = event.dataTransfer.files;
-            for (let file of files) {
-                let fileInput = document.createElement("input");
-                fileInput.type = "file";
-                fileInput.name = "images";
-                fileInput.files = event.dataTransfer.files;
-                let container = document.getElementById("image-container");
-                let div = document.createElement("div");
-                div.appendChild(fileInput);
-                div.innerHTML += `<textarea name="descriptions[]" placeholder="Describe the UI..." required></textarea>`;
-                container.appendChild(div);
-            }
+            let formData = new FormData();
+            formData.append("image", image);
+            formData.append("description", description);
+            
+            fetch("/generate-code", {
+                method: "POST",
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById("code-output").textContent = data.generated_code;
+            })
+            .catch(error => console.error("Error:", error));
         });
     </script>
-</body>y
+</body>
 </html>
-
