@@ -3,141 +3,118 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Front AI - UI</title>
+    <title>Fronti - AI UI Builder</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            background-color: #000;
-            color: white;
+            background: #0f0f0f;
             margin: 0;
             padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            color: white;
         }
-
-        header, footer {
-            text-align: center;
-            padding: 10px;
-            background-color: #111;
-        }
-
         .container {
-            padding: 20px;
+            width: 80%;
+            background: #181818;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: inset 0 0 20px rgba(255, 255, 255, 0.1), 0 0 20px rgba(0, 0, 0, 0.7);
             text-align: center;
+            position: relative;
         }
-
-        input[type="file"] {
-            margin: 20px 0;
-        }
-
-        button {
-            background-color: #007bff;
-            color: white;
-            border: none;
-            padding: 10px 20px;
+        .drop-area {
+            border: 2px dashed grey;
+            padding: 50px;
+            border-radius: 15px;
+            text-align: center;
             cursor: pointer;
         }
-
-        button:hover {
-            background-color: #0056b3;
+        .drop-area.highlight {
+            border-color: white;
         }
-
-        #code-output {
-            margin-top: 20px;
-            background-color: #222;
-            padding: 10px;
-            border-radius: 5px;
+        .code-output {
+            background: #111;
+            color: #ccc;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: left;
+            overflow-x: auto;
+            box-shadow: inset 0 0 20px rgba(200, 200, 200, 0.3);
             white-space: pre-wrap;
-            color: #0f0;
         }
-
-        .copy-button {
-            background-color: #28a745;
+        button {
+            background: #333;
             color: white;
             border: none;
-            padding: 5px 10px;
+            padding: 15px 25px;
+            border-radius: 15px;
             cursor: pointer;
-            margin-top: 10px;
-        }
-
-        .copy-button:hover {
-            background-color: #218838;
-        }
-
-        #loading-message {
-            display: none;
-            margin-top: 10px;
-            color: #ffc107;
+            font-weight: bold;
+            font-size: 1.2em;
+            margin: 10px;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Front AI - Convert UI Images to Code</h1>
-    </header>
     <div class="container">
-        <input type="file" id="image-upload" accept="image/*">
-        <button id="generate-code">Generate Code</button>
-        <div id="loading-message">Generating code, please wait...</div>
-        <div id="code-output">Generated code will appear here...</div>
-        <button class="copy-button" id="copy-code" style="display: none;">Copy Code</button>
+        <h1>Fronti - Drag & Drop UI Builder</h1>
+        <div class="drop-area" id="drop-area">Drag & Drop UI Images Here</div>
+        <input type="file" id="file-input" multiple accept="image/*" style="display: none;">
+        <button onclick="generateCode()">Generate Code</button>
+        <h2>Generated Code:</h2>
+        <div class="code-output" id="generated-code"></div>
+        <button onclick="copyCode()">Copy Code</button>
+        <button onclick="downloadCode()">Download Code</button>
     </div>
-    <footer>
-        &copy; 2025 Front AI. All Rights Reserved.
-    </footer>
-
+    
     <script>
-        document.getElementById('generate-code').addEventListener('click', async () => {
-            const fileInput = document.getElementById('image-upload');
-            const output = document.getElementById('code-output');
-            const copyButton = document.getElementById('copy-code');
-            const generateButton = document.getElementById('generate-code');
-            const loadingMessage = document.getElementById('loading-message');
+        const dropArea = document.getElementById("drop-area");
+        const fileInput = document.getElementById("file-input");
 
-            if (!fileInput.files.length) {
-                output.textContent = "Please upload an image first.";
-                copyButton.style.display = "none";
-                return;
-            }
-
-            generateButton.style.display = "none"; // Hide the button during processing
-            loadingMessage.style.display = "block"; // Show the loading message
-
-            const formData = new FormData();
-            formData.append('image', fileInput.files[0]);
-
-            try {
-                const response = await fetch('http://127.0.0.1:5000/process-image', {
-                    method: 'POST',
-                    body: formData,
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-
-                if (data.error) {
-                    output.textContent = `Error: ${data.error}`;
-                    copyButton.style.display = "none";
-                } else {
-                    output.textContent = `Description: ${data.description}\nColor: ${data.color}\nGenerated Code:\n${data.generated_code}`;
-                    copyButton.style.display = "inline-block";
-                    copyButton.onclick = () => {
-                        navigator.clipboard.writeText(data.generated_code).then(() => {
-                            alert('Code copied to clipboard!');
-                        }).catch(err => {
-                            alert('Failed to copy code: ' + err);
-                        });
-                    };
-                }
-            } catch (error) {
-                output.textContent = `Failed to connect to the server: ${error.message}`;
-                copyButton.style.display = "none";
-            } finally {
-                generateButton.style.display = "inline-block"; // Show the button after processing
-                loadingMessage.style.display = "none"; // Hide the loading message
-            }
+        dropArea.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dropArea.classList.add("highlight");
         });
+        dropArea.addEventListener("dragleave", () => {
+            dropArea.classList.remove("highlight");
+        });
+        dropArea.addEventListener("drop", (e) => {
+            e.preventDefault();
+            dropArea.classList.remove("highlight");
+            fileInput.files = e.dataTransfer.files;
+        });
+        dropArea.addEventListener("click", () => fileInput.click());
+
+        async function generateCode() {
+            let formData = new FormData();
+            for (let file of fileInput.files) {
+                formData.append("images", file);
+            }
+            let response = await fetch("http://localhost:5000/generate-code", { method: "POST", body: formData });
+            let result = await response.json();
+            document.getElementById("generated-code").innerText = result.generated_code || "Error generating code";
+        }
+
+        function copyCode() {
+            let codeText = document.getElementById("generated-code").innerText;
+            navigator.clipboard.writeText(codeText).then(() => {
+                alert("Code copied to clipboard!");
+            });
+        }
+
+        function downloadCode() {
+            let codeText = document.getElementById("generated-code").innerText;
+            let blob = new Blob([codeText], { type: "text/html" });
+            let link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "generated_code.html";
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     </script>
 </body>
 </html>
